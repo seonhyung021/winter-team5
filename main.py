@@ -3,15 +3,15 @@ import os
 import requests
 import gradio as gr
 from openai import AzureOpenAI
-from dotenv import load_dotenv  
+from dotenv import load_dotenv 
 
 load_dotenv()
 
-# Custom Vision 설정 (환경변수에서 가져오기)
+# Custom Vision 설정 
 PREDICTION_URL = os.getenv("PREDICTION_URL")
 PREDICTION_KEY = os.getenv("PREDICTION_KEY")
 
-# Azure OpenAI 설정 (환경변수에서 가져오기)
+# Azure OpenAI 설정 
 AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
 AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
 DEPLOYMENT_NAME = os.getenv("DEPLOYMENT_NAME", "gpt-4o-mini")
@@ -100,6 +100,7 @@ def pill_pipeline(image):
 custom_css = """
 @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700;800&display=swap');
 
+/* 전체 배경 */
 body {
     background-color: #F5F7FA;
     font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
@@ -110,7 +111,7 @@ body {
     margin: 40px auto !important;
 }
 
-
+/* 카드 디자인 */
 .pill-card {
     background: #ffffff !important;
     border-radius: 24px !important;
@@ -119,7 +120,7 @@ body {
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.03) !important;
 }
 
-
+/* 타이틀 */
 .pill-hero-title {
     font-size: 2.6rem !important;
     font-weight: 800 !important;
@@ -148,11 +149,13 @@ body {
     margin-bottom: 20px;
 }
 
+/* 하이라이트 컬러 */
 .pill-hero-highlight {
     color: #3182CE;
     font-weight: 700;
 }
 
+/* 메인 버튼 */
 .pill-start-btn, .pill-btn-main {
     background: linear-gradient(135deg, #3182CE 0%, #2B6CB0 100%) !important;
     border: none !important;
@@ -170,6 +173,7 @@ body {
     box-shadow: 0 6px 15px rgba(49, 130, 206, 0.3) !important;
 }
 
+/* 보조 버튼: 부드러운 그레이 */
 .pill-btn-secondary {
     background: #EDF2F7 !important;
     border: none !important;
@@ -179,6 +183,7 @@ body {
     height: 54px !important;
 }
 
+/* 입력/출력창 스타일 */
 .pill-output textarea, .pill-image {
     border-radius: 16px !important;
     border: 1px solid #E2E8F0 !important;
@@ -200,7 +205,7 @@ body {
 }
 """
 
-# Gradio 테마 설정 
+# Gradio 테마 설정 (Clean & Professional)
 theme = gr.themes.Default(
     primary_hue="blue",
     secondary_hue="slate",
@@ -210,9 +215,20 @@ theme = gr.themes.Default(
     block_label_text_size="sm",
     button_primary_background_fill="*primary_600",
 )
-
+demo = gr.Blocks(css="""
+.gr-image .empty, 
+.gr-image .svelte-1ipelgc, 
+.gr-image .svelte-116rlq2 {
+    display: none !important;
+}
+.gr-image img {
+    object-fit: contain;
+    max-height: 300px;
+}
+""")
 with gr.Blocks(css=custom_css, theme=theme, title="AI 복약 가이드") as demo:
     with gr.Column(elem_classes="pill-app"):
+        # ---------- 1. 랜딩 화면 ----------
         with gr.Column(elem_classes="pill-card", elem_id="landing") as landing_col:
             gr.HTML(
                 """
@@ -242,13 +258,16 @@ with gr.Blocks(css=custom_css, theme=theme, title="AI 복약 가이드") as demo
             gr.HTML('<p class="pill-hero-foot" style="text-align:center; color:#A0AEC0; font-size:0.8rem; margin-top:20px;">'
                     '※ 본 서비스는 교육용 데모이며, 정확한 복용법은 의사·약사와 상담하십시오.</p>')
 
+        # ---------- 2. 도구 화면 ----------
         with gr.Column(elem_classes="pill-card", visible=False) as tool_col:
             gr.Markdown("### 💊 약 사진을 업로드해 주세요")
 
             image_in = gr.Image(
                 type="pil",
-                label="알약 이미지 (앞/뒷면)",
-                elem_classes="pill-image",
+                label="약 이미지 업로드",
+                height=320,   # 자동 리사이즈
+                width=320,    # 원하는 크기
+                show_label=False
             )
 
             with gr.Row():
