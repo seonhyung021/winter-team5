@@ -96,11 +96,10 @@ def pill_pipeline(image):
     return result_text, explanation
 
 
-# Gradio UI 세련된 메디컬 테마 적용
+# Gradio UI
 custom_css = """
 @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700;800&display=swap');
 
-/* 전체 배경: 깨끗한 라이트 그레이와 화이트 */
 body {
     background-color: #F5F7FA;
     font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
@@ -111,7 +110,7 @@ body {
     margin: 40px auto !important;
 }
 
-/* 카드 디자인: 애플 스타일의 부드러운 그림자와 둥근 모서리 */
+
 .pill-card {
     background: #ffffff !important;
     border-radius: 24px !important;
@@ -120,7 +119,7 @@ body {
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.03) !important;
 }
 
-/* 타이틀: 신뢰감 있는 딥 네이비 블루 */
+
 .pill-hero-title {
     font-size: 2.6rem !important;
     font-weight: 800 !important;
@@ -149,13 +148,11 @@ body {
     margin-bottom: 20px;
 }
 
-/* 하이라이트 컬러: 차분한 메디컬 블루 */
 .pill-hero-highlight {
     color: #3182CE;
     font-weight: 700;
 }
 
-/* 메인 버튼: 신뢰감 있는 블루 그라데이션 */
 .pill-start-btn, .pill-btn-main {
     background: linear-gradient(135deg, #3182CE 0%, #2B6CB0 100%) !important;
     border: none !important;
@@ -173,7 +170,6 @@ body {
     box-shadow: 0 6px 15px rgba(49, 130, 206, 0.3) !important;
 }
 
-/* 보조 버튼: 부드러운 그레이 */
 .pill-btn-secondary {
     background: #EDF2F7 !important;
     border: none !important;
@@ -183,7 +179,6 @@ body {
     height: 54px !important;
 }
 
-/* 입력/출력창 스타일 */
 .pill-output textarea, .pill-image {
     border-radius: 16px !important;
     border: 1px solid #E2E8F0 !important;
@@ -205,7 +200,7 @@ body {
 }
 """
 
-# Gradio 테마 설정 (Clean & Professional)
+# Gradio 테마 설정 
 theme = gr.themes.Default(
     primary_hue="blue",
     secondary_hue="slate",
@@ -216,15 +211,14 @@ theme = gr.themes.Default(
     button_primary_background_fill="*primary_600",
 )
 
-with gr.Blocks(css=custom_css, theme=theme, title="On-nuri AI 복약 가이드") as demo:
+with gr.Blocks(css=custom_css, theme=theme, title="AI 복약 가이드") as demo:
     with gr.Column(elem_classes="pill-app"):
-        # ---------- 1. 랜딩 화면 ----------
         with gr.Column(elem_classes="pill-card", elem_id="landing") as landing_col:
             gr.HTML(
                 """
                 <div style="text-align:center;">
                   <div class="pill-hero-badge">Smart Health Care · AI Predictor</div>
-                  <h1 class="pill-hero-title">On-nuri 스마트 복약안내</h1>
+                  <h1 class="pill-hero-title">AI 스마트 복약안내</h1>
                   <p class="pill-hero-sub">
                     복잡한 약 정보, 사진 한 장으로 해결하세요.<br/>
                     AI가 분석한 <span class="pill-hero-highlight">약 성분 · 효능 · 주의사항</span> 가이드를 제공합니다.
@@ -248,7 +242,6 @@ with gr.Blocks(css=custom_css, theme=theme, title="On-nuri AI 복약 가이드")
             gr.HTML('<p class="pill-hero-foot" style="text-align:center; color:#A0AEC0; font-size:0.8rem; margin-top:20px;">'
                     '※ 본 서비스는 교육용 데모이며, 정확한 복용법은 의사·약사와 상담하십시오.</p>')
 
-        # ---------- 2. 도구 화면 ----------
         with gr.Column(elem_classes="pill-card", visible=False) as tool_col:
             gr.Markdown("### 💊 약 사진을 업로드해 주세요")
 
