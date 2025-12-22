@@ -3,9 +3,8 @@ import os
 import requests
 import gradio as gr
 from openai import AzureOpenAI
-from dotenv import load_dotenv  # ✅ 추가
+from dotenv import load_dotenv  
 
-# .env 불러오기
 load_dotenv()
 
 # Custom Vision 설정 (환경변수에서 가져오기)
