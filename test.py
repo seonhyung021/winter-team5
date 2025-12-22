@@ -6,11 +6,12 @@ from openai import AzureOpenAI
 
 # Custom Vision 설정 
 PREDICTION_URL = "https://customvisionpredictionstudent07-prediction.cognitiveservices.azure.com/customvision/v3.0/Prediction/c60aaa22-46b0-40ff-9078-79f00e82e4d0/classify/iterations/Iteration1/image"   # ?iterationId=... 까지 포함된 전체 URL
-PREDICTION_KEY = "KEY"
+PREDICTION_KEY = "3ZazAn012xcZ0Wz7oP5TvoqhvKnyscOxDaPAsdBybER6iW6uovJeJQQJ99BLACLArgHXJ3w3AAAIACOGa5Yl"
 
 #  Azure OpenAI 설정
 AZURE_OPENAI_ENDPOINT = "https://team5-openai.openai.azure.com/"
-AZURE_OPENAI_API_KEY = "key"
+AZURE_OPENAI_API_KEY = "3eu1gnnzE0D5CLzz2AwO7VGZKWv32cPU7CTy9jwdTPdqdFWW8297JQQJ99BLACNns7RXJ3w3AAABACOGKUsp"
+
 DEPLOYMENT_NAME = "gpt-4o-mini"
 
 client = AzureOpenAI(
