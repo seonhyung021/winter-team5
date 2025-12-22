@@ -3,18 +3,17 @@ import os
 import requests
 import gradio as gr
 from openai import AzureOpenAI
-from dotenv import load_dotenv 
+from dotenv import load_dotenv
 
+# 환경 변수 로드 (.env 사용)
 load_dotenv()
 
-# Custom Vision 설정 
 PREDICTION_URL = os.getenv("PREDICTION_URL")
 PREDICTION_KEY = os.getenv("PREDICTION_KEY")
 
-# Azure OpenAI 설정 
 AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
-AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
-DEPLOYMENT_NAME = os.getenv("DEPLOYMENT_NAME", "gpt-4o-mini")
+AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_KEY")
+DEPLOYMENT_NAME = os.getenv("DEPLOYMENT_NAME")
 
 client = AzureOpenAI(
     api_key=AZURE_OPENAI_API_KEY,
@@ -22,13 +21,12 @@ client = AzureOpenAI(
     azure_endpoint=AZURE_OPENAI_ENDPOINT,
 )
 
-# 약 이미지 → Custom Vision 예측 
+# Custom Vision으로 약 분류
+
 def classify_pill(image):
-    """
-    Gradio에서 받은 PIL 이미지(image)를 Custom Vision으로 보내서
-    가장 확률 높은 약 이름(tag_name)과 확률을 반환
-    """
-    # PIL 이미지를 bytes로 변환
+    if image is None:
+        return "이미지 없음", 0.0
+
     buf = io.BytesIO()
     image.save(buf, format="JPEG")
     img_bytes = buf.getvalue()
@@ -38,264 +36,324 @@ def classify_pill(image):
         "Prediction-Key": PREDICTION_KEY,
     }
 
-    res = requests.post(PREDICTION_URL, headers=headers, data=img_bytes)
-    res.raise_for_status()
-    data = res.json()
+    resp = requests.post(PREDICTION_URL, headers=headers, data=img_bytes)
+    resp.raise_for_status()
+    data = resp.json()
 
-    predictions = data.get("predictions", [])
-    if not predictions:
-        return "알 수 없음", 0.0
+    preds = data.get("predictions", [])
+    if not preds:
+        return "분류 실패", 0.0
 
-    top = max(predictions, key=lambda x: x["probability"])
-    pill_name = top["tagName"]
-    prob = float(top["probability"])
-    return pill_name, prob
+    best = max(preds, key=lambda x: x["probability"])
+    tag_name = best["tagName"]
+    prob = best["probability"] * 100
+    return tag_name, prob
 
+# Azure OpenAI로 약 설명 생성
 
-# 약 이름 → Azure OpenAI 설명 
-def explain_pill(pill_name: str, prob: float) -> str:
-    """
-    약 이름과 확률을 받아서, Azure OpenAI에게 설명을 생성하게 함
-    """
-    if pill_name == "알 수 없음":
-        return "이미지에서 약을 잘 인식하지 못했어요. 사진을 조금 더 선명하게 다시 찍어 주세요."
+def explain_pill_with_gpt(pill_name: str) -> str:
+    if pill_name in ["이미지 없음", "분류 실패"]:
+        return "이미지 인식이 제대로 되지 않아 약 정보를 생성할 수 없습니다. 다시 촬영해 주세요."
 
-    user_prompt = f"""
-    사용자가 올린 사진을 통해 Custom Vision 모델이 약을 '{pill_name}' 이라고 {prob*100:.1f}% 확신으로 예측했습니다.
-
-    1. 이 약이 어떤 약인지 (성분, 일반적인 효능) 쉽게 설명해 주세요.
-    2. 보통 어떤 상황에서 복용하는지.
-    3. 10대~20대가 많이 쓰는 표현 정도 난이도로, 너무 무섭지 않게 주의사항(과다복용, 같이 먹으면 안 되는 경우 등)도 정리해 주세요.
-    4. 의사가 아니기 때문에 최종 복용 전에는 반드시 의사/약사와 상담하라고 마지막에 한 줄 정도 덧붙여 주세요.
-    """
-
-    completion = client.chat.completions.create(
-        model=DEPLOYMENT_NAME,
-        messages=[
-            {
-                "role": "system",
-                "content": (
-                    "너는 친절한 약 설명 챗봇이야. "
-                    "약에 대한 정확한 정보와 함께, 너무 어렵지 않은 말로 설명해 줘."
-                ),
-            },
-            {"role": "user", "content": user_prompt},
-        ],
-        temperature=0.5,
-        max_tokens=600,
+    system_msg = (
+        "당신은 복약 안내를 도와주는 친절한 약사입니다. "
+        "사용자가 복용하려는 약의 이름을 알려주면, "
+        "1) 어떤 약인지, 2) 일반적인 효능, 3) 기본 복용 방법, "
+        "4) 대표적인 주의사항/부작용을 쉽고 짧게 bullet 형식으로 설명해 주세요. "
+        "의사가 아닌 AI 데모 서비스이므로, 마지막에 반드시 "
+        "'정확한 복약 안내는 약사·의사와 상의해 주세요.'라는 문장을 포함해 주세요."
     )
 
-    return completion.choices[0].message.content.strip()
+    user_msg = f"약 이름: {pill_name}\n이 약에 대해 위 기준에 맞게 한국어로 설명해 주세요."
+
+    response = client.chat.completions.create(
+        model=DEPLOYMENT_NAME,
+        messages=[
+            {"role": "system", "content": system_msg},
+            {"role": "user", "content": user_msg},
+        ],
+        temperature=0.4,
+    )
+
+    return response.choices[0].message.content.strip()
 
 
-# Gradio에서 쓸 파이프라인 함수 
-def pill_pipeline(image):
+# Gradio에서 쓸 분석 함수
+
+def analyze_pill(image):
+    if image is None:
+        return "이미지가 업로드되지 않았습니다.", ""
+
     pill_name, prob = classify_pill(image)
-    result_text = f"예측된 약 이름: {pill_name}  (신뢰도: {prob*100:.1f}%)"
-    explanation = explain_pill(pill_name, prob)
-    return result_text, explanation
+    detail = explain_pill_with_gpt(pill_name)
+
+    header_text = f"예측된 약 이름: {pill_name} (신뢰도: {prob:.1f}%)"
+    return header_text, detail
 
 
-# Gradio UI
+
+# Gradio UI CSS 
+
 custom_css = """
-@import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700;800&display=swap');
 
-/* 전체 배경 */
-body {
-    background-color: #F5F7FA;
-    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+body, .gradio-container {
+    background-color: #ffffff !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", system-ui, sans-serif;
 }
 
-.gradio-container {
-    max-width: 850px !important;
-    margin: 40px auto !important;
+.gradio-container .gr-block,
+.gradio-container .gr-panel,
+.gradio-container .gr-group,
+.gradio-container .gr-box,
+.gradio-container .gr-form,
+.gradio-container .styler,
+.gradio-container .wrap,
+.gradio-container .contain {
+    background-color: transparent !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    min-height: 0 !important;
 }
 
-/* 카드 디자인 */
-.pill-card {
-    background: #ffffff !important;
-    border-radius: 24px !important;
-    border: 1px solid #E5E9F0 !important;
-    padding: 40px !important;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.03) !important;
+.pill-phone-card {
+    max-width: 800px;
+    margin: 20px auto;
+    background: #ffffff;
+    border-radius: 32px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.06);
+    padding: 30px;
+    border: 1px solid #f0f0f0;
 }
 
-/* 타이틀 */
-.pill-hero-title {
-    font-size: 2.6rem !important;
-    font-weight: 800 !important;
-    color: #1A202C !important;
-    letter-spacing: -0.04em !important;
-    margin-bottom: 12px !important;
+.mint-point {
+    color: #4FD1C5 !important; /* 민트색 */
+}
+
+.pill-landing-title, .pill-header-title {
+    font-size: 32px;
+    font-weight: 800;
     text-align: center;
+    color: #38B2AC; /* 다크 민트 */
+    margin-bottom: 8px;
 }
 
-.pill-hero-sub {
-    font-size: 1.1rem !important;
-    color: #4A5568 !important;
+.pill-landing-sub, .pill-header-sub {
     text-align: center;
-    line-height: 1.6;
-    margin-bottom: 30px !important;
+    font-size: 14px;
+    color: #718096;
+    margin-bottom: 24px;
 }
 
-.pill-hero-badge {
-    display: inline-block;
-    padding: 6px 14px;
-    border-radius: 8px;
-    background: #EDF2F7;
-    color: #4A5568;
-    font-weight: 600;
-    font-size: 0.85rem;
-    margin-bottom: 20px;
-}
-
-/* 하이라이트 컬러 */
-.pill-hero-highlight {
-    color: #3182CE;
+.pill-landing-highlight {
+    color: #319795;
     font-weight: 700;
 }
 
-/* 메인 버튼 */
-.pill-start-btn, .pill-btn-main {
-    background: linear-gradient(135deg, #3182CE 0%, #2B6CB0 100%) !important;
-    border: none !important;
-    color: white !important;
-    font-weight: 700 !important;
-    height: 54px !important;
-    border-radius: 12px !important;
-    font-size: 1.1rem !important;
-    transition: all 0.2s ease !important;
-    box-shadow: 0 4px 12px rgba(49, 130, 206, 0.2) !important;
+.pill-landing-box {
+    margin-top: 10px;
+    padding: 20px;
+    border-radius: 20px;
+    background: #F0FFF4; 
+    border: 1px dashed #B2F5EA;
+    font-size: 13px;
+    color: #2D3748;
 }
 
-.pill-start-btn:hover, .pill-btn-main:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 15px rgba(49, 130, 206, 0.3) !important;
-}
 
-/* 보조 버튼: 부드러운 그레이 */
-.pill-btn-secondary {
-    background: #EDF2F7 !important;
-    border: none !important;
-    color: #4A5568 !important;
-    font-weight: 600 !important;
-    border-radius: 12px !important;
-    height: 54px !important;
-}
-
-/* 입력/출력창 스타일 */
-.pill-output textarea, .pill-image {
+/* 랜딩 화면의 시작하기 버튼만 전체 폭 */
+.pill-landing-start-btn {
+    margin-top: 20px;
+    width: 100%;
+    background: linear-gradient(135deg, #4FD1C5, #38B2AC) !important;
+    color: #ffffff !important;
+    font-weight: 800 !important;
     border-radius: 16px !important;
-    border: 1px solid #E2E8F0 !important;
-    background: #F8FAFC !important;
-    padding: 15px !important;
+    height: 50px;
+    border: none !important;
 }
 
-.pill-label {
-    font-weight: 700 !important;
-    color: #2D3748 !important;
-    margin-bottom: 8px !important;
+/* 도구 화면의 메인 버튼 (폭은 flex로 맞춤) */
+.pill-btn-main {
+    background: linear-gradient(135deg, #4FD1C5, #38B2AC) !important;
+    color: #ffffff !important;
+    font-weight: 800 !important;
+    border-radius: 16px !important;
+    border: none !important;
 }
-
-.pill-footer {
+.pill-guide-list span.num {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #4FD1C5;
+    color: #fff;
     text-align: center;
+    font-size: 12px;
+    line-height: 20px;
+    margin-right: 8px;
+}
+
+.pill-image-wrapper .gradio-image {
+    border-radius: 24px;
+    overflow: hidden;
+    border: 2px solid #E6FFFA;
+}
+.pill-result-box {
+    margin-top: 16px;
+    padding: 16px;
+    border-radius: 20px;
+    background: #ffffff;
+    border: 1px solid #E6FFFA;
+}
+
+.pill-result-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #2C7A7B;
+    margin-bottom: 8px;
+}
+
+.pill-btn-sub {
+    background: #E6FFFA !important;
+    color: #2C7A7B !important;
+    border-radius: 16px !important;
+    border: none !important;
+}
+
+.pill-footer-note, .pill-landing-footer {
+    margin-top: 24px;
+    font-size: 12px;
     color: #A0AEC0;
-    font-size: 0.9rem;
-    margin-top: 30px;
+    text-align: center;
+}
+
+.btn-main, .btn-secondary, .pill-btn-main, .pill-btn-sub {
+    height: 54px !important; 
+    min-height: 54px !important; 
+    max-height: 54px !important;
+    line-height: 54px !important; 
+    padding: 0 20px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
 }
 """
 
-# Gradio 테마 설정 (Clean & Professional)
-theme = gr.themes.Default(
-    primary_hue="blue",
-    secondary_hue="slate",
-    neutral_hue="gray",
-).set(
-    block_title_text_weight="700",
-    block_label_text_size="sm",
-    button_primary_background_fill="*primary_600",
-)
-demo = gr.Blocks(css="""
-.gr-image .empty, 
-.gr-image .svelte-1ipelgc, 
-.gr-image .svelte-116rlq2 {
-    display: none !important;
-}
-.gr-image img {
-    object-fit: contain;
-    max-height: 300px;
-}
+
+# 화면 전환용 함수
+
+def go_tool():
+    return gr.update(visible=False), gr.update(visible=True)
+
+
+# Gradio Blocks
+
+with gr.Blocks(css=custom_css, title="AI 복약 가이드") as demo:
+
+    with gr.Column(elem_classes=["pill-phone-card"]) as main_card:
+
+        # 랜딩 화면
+        with gr.Column(visible=True) as landing_group:
+            gr.Markdown("""
+<div class="pill-landing-title">AI 복약 가이드</div>
+<div class="pill-landing-sub">
+사진 한 장으로 <span class="pill-landing-highlight">어떤 약인지, 어떻게 먹어야 하는지</span><br>
+빠르게 확인할 수 있는 Azure 기반 데모 서비스입니다.
+</div>
+
+<div class="pill-landing-box">
+  <div class="pill-landing-step">① 알약 앞·뒷면을 또렷하게 촬영해 주세요.</div>
+  <div class="pill-landing-step">② 사진을 업로드하면 알약을 인식하고 이름을 예측합니다.</div>
+  <div class="pill-landing-step">③ Azure OpenAI가 효능, 복용법, 주의사항을 쉽게 설명해 줍니다.</div>
+</div>
 """)
-with gr.Blocks(css=custom_css, theme=theme, title="AI 복약 가이드") as demo:
-    with gr.Column(elem_classes="pill-app"):
-        # ---------- 1. 랜딩 화면 ----------
-        with gr.Column(elem_classes="pill-card", elem_id="landing") as landing_col:
-            gr.HTML(
-                """
-                <div style="text-align:center;">
-                  <div class="pill-hero-badge">Smart Health Care · AI Predictor</div>
-                  <h1 class="pill-hero-title">AI 스마트 복약안내</h1>
-                  <p class="pill-hero-sub">
-                    복잡한 약 정보, 사진 한 장으로 해결하세요.<br/>
-                    AI가 분석한 <span class="pill-hero-highlight">약 성분 · 효능 · 주의사항</span> 가이드를 제공합니다.
-                  </p>
-                </div>
-                """
-            )
 
-            with gr.Row():
-                gr.Markdown(
-                    """
-                    ### 🔍 서비스 활용 안내
-                    1. **인식:** 알약의 앞/뒷면이 잘 보이도록 촬영해 주세요.
-                    2. **분석:** Custom Vision AI가 수천 개의 약 데이터를 대조합니다.
-                    3. **가이드:** Azure OpenAI가 이해하기 쉬운 복약 지도를 생성합니다.
-                    """,
+            start_btn = gr.Button("시작하기", elem_classes=["pill-landing-start-btn"])
+
+            gr.Markdown("""
+<div class="pill-landing-footer">
+※ 본 서비스는 교육용 데모이며, 실제 복약 전에는 반드시 의료진·약사와 상담해 주세요.<br>
+숙명여대 Azure Winter School Team 5
+</div>
+""")
+
+        # 실제 도구 화면 
+        with gr.Column(visible=False) as tool_group:
+
+            gr.Markdown("""
+<div class="pill-header-title">AI 복약 가이드</div>
+<div class="pill-header-sub">
+알약 사진을 업로드하면 어떤 약인지 분류하고,<br>
+복용 방법과 주의사항을 안내해 드립니다.
+</div>
+""")
+
+            gr.Markdown("""
+<div class="pill-guide-title" style="font-weight:700; font-size:15px; margin-bottom:10px;">📸 알약 촬영 가이드</div>
+<div class="pill-guide-list">
+<div style="margin-bottom:5px;"><span class="num">1</span> 알약이 <b>화면 중앙</b>에 오도록 촬영</div>
+<div style="margin-bottom:5px;"><span class="num">2</span> <b>밝은 조명</b> 아래에서 찍어 주세요</div>
+<div style="margin-bottom:15px;"><span class="num">3</span> <b>깔끔한 배경</b>일수록 인식률이 높아집니다</div>
+</div>
+""")
+
+            with gr.Column(elem_classes=["pill-image-wrapper"]):
+                image_in = gr.Image(
+                    type="pil",
+                    label="",
+                    height=280,
+                    width=280,
+                    show_label=False,
                 )
 
-            start_btn = gr.Button("분석 시작하기", elem_classes="pill-start-btn")
-            
-            gr.HTML('<p class="pill-hero-foot" style="text-align:center; color:#A0AEC0; font-size:0.8rem; margin-top:20px;">'
-                    '※ 본 서비스는 교육용 데모이며, 정확한 복용법은 의사·약사와 상담하십시오.</p>')
+            with gr.Row(elem_classes=["pill-btn-row"], equal_height=True):
+                clear_btn = gr.Button("다시 선택", elem_classes=["pill-btn-sub"])
+                submit_btn = gr.Button("결과 분석하기", elem_classes=["pill-btn-main"])
 
-        # ---------- 2. 도구 화면 ----------
-        with gr.Column(elem_classes="pill-card", visible=False) as tool_col:
-            gr.Markdown("### 💊 약 사진을 업로드해 주세요")
-
-            image_in = gr.Image(
-                type="pil",
-                label="약 이미지 업로드",
-                height=320,   # 자동 리사이즈
-                width=320,    # 원하는 크기
-                show_label=False
-            )
-
-            with gr.Row():
-                clear_btn = gr.Button("초기화", elem_classes="pill-btn-secondary")
-                submit_btn = gr.Button("결과 분석하기", elem_classes="pill-btn-main")
-
-            with gr.Column():
-                result_box = gr.Textbox(
-                    label="인식된 약품 정보",
-                    placeholder="분석 결과가 여기에 표시됩니다.",
+            with gr.Column(elem_classes=["pill-result-box"]):
+                gr.Markdown('<div class="pill-result-title">🔍 인식된 약품 정보</div>')
+                pill_header = gr.Textbox(
+                    placeholder="이미지를 업로드한 뒤 [결과 분석하기] 버튼을 눌러 주세요.",
                     interactive=False,
+                    lines=1,
+                    show_label=False,
                 )
-                explain_box = gr.Textbox(
-                    label="상세 복약 가이드",
-                    placeholder="AI가 생성한 설명이 여기에 표시됩니다.",
-                    lines=12,
+
+            with gr.Column(elem_classes=["pill-result-box"]):
+                gr.Markdown('<div class="pill-result-title">💊 상세 복약 가이드</div>')
+                pill_detail = gr.Textbox(
+                    placeholder="약의 효능, 복용 방법, 주의사항이 이곳에 표시됩니다.",
                     interactive=False,
+                    lines=10,
+                    show_label=False,
                 )
 
-            gr.HTML('<div class="pill-footer">© 숙명여대 Azure Winter School 5팀 · Powered by Azure Cognitive Services</div>')
+            gr.Markdown("""
+<div class="pill-footer-note">
+※ 본 서비스는 교육용 데모이며, 실제 복약 전에는 반드시 의료진·약사와 상담해 주세요.<br>
+ 숙명여대 Azure Winter School Team 5
+</div>
+""")
 
-    # --------- 동작 연결 ---------
-    def show_tool():
-        return gr.update(visible=False), gr.update(visible=True)
+    #버튼 동작 
+    start_btn.click(
+        fn=lambda: (gr.update(visible=False), gr.update(visible=True)),
+        inputs=None,
+        outputs=[landing_group, tool_group],
+    )
 
-    start_btn.click(fn=show_tool, outputs=[landing_col, tool_col])
-    submit_btn.click(fn=pill_pipeline, inputs=image_in, outputs=[result_box, explain_box])
-    clear_btn.click(fn=lambda: (None, "", ""), outputs=[image_in, result_box, explain_box])
+    submit_btn.click(
+        fn=analyze_pill,
+        inputs=image_in,
+        outputs=[pill_header, pill_detail],
+    )
+
+    clear_btn.click(
+        fn=lambda: (None, "", ""),
+        inputs=None,
+        outputs=[image_in, pill_header, pill_detail],
+    )
 
 if __name__ == "__main__":
     demo.launch()
