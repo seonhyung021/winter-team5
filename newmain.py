@@ -491,6 +491,8 @@ with gr.Blocks(css=custom_css, title="AI 복약 가이드") as demo:
 <div style="margin-bottom:5px;"><span class="num">1</span> 알약이 <b>화면 중앙</b>에 오도록 촬영</div>
 <div style="margin-bottom:5px;"><span class="num">2</span> <b>밝은 조명</b> 아래에서 찍어 주세요</div>
 <div style="margin-bottom:15px;"><span class="num">3</span> <b>깔끔한 배경</b>일수록 인식률이 높아집니다</div>
+<div style="margin-bottom:15px;"> ※ 본 서비스는 최대 6MB 이하의 이미지만 업로드할 수 있습니다.<br>
+※ 업로드된 이미지는 분석 목적에만 일시적으로 사용되며, 어떠한 개인 정보도 저장되지 않고 즉시 폐기됩니다.</div>
 </div>
 """)
 
