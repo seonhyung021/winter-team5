@@ -1,19 +1,26 @@
 import io
 import os
 import requests
+import difflib 
 import gradio as gr
 from openai import AzureOpenAI
 from dotenv import load_dotenv
 
-# 환경 변수 로드 (.env 사용)
+#  환경 변수 로드 (.env 사용)
 load_dotenv()
 
+# Custom Vision
 PREDICTION_URL = os.getenv("PREDICTION_URL")
 PREDICTION_KEY = os.getenv("PREDICTION_KEY")
 
+# Azure OpenAI
 AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
 AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_KEY")
 DEPLOYMENT_NAME = os.getenv("DEPLOYMENT_NAME")
+
+# Azure Vision (OCR 용)
+AZURE_VISION_ENDPOINT = os.getenv("AZURE_VISION_ENDPOINT")  # https://pill-vision-team5.cognitiveservices.azure.com/
+AZURE_VISION_KEY = os.getenv("AZURE_VISION_KEY")
 
 client = AzureOpenAI(
     api_key=AZURE_OPENAI_API_KEY,
@@ -21,12 +28,124 @@ client = AzureOpenAI(
     azure_endpoint=AZURE_OPENAI_ENDPOINT,
 )
 
-# Custom Vision으로 약 분류
+# 공통: 문자열 정규화 + 유사도 점수 함수
+def _normalize(text: str) -> str:
+    """알파벳/숫자만 남기고 대문자로 통일"""
+    if not text:
+        return ""
+    return "".join(ch for ch in text.upper() if ch.isalnum())
+
+def _similarity(a: str, b: str) -> float:
+    """0~1 사이 유사도 (SequenceMatcher 사용)"""
+    if not a or not b:
+        return 0.0
+    return difflib.SequenceMatcher(None, a, b).ratio()
+
+
+# Azure Vision OCR로 알약 표면 글자 읽기
+
+def ocr_pill_text(image) -> str:
+    """
+    알약 표면의 알파벳/숫자를 OCR로 읽어서 한 줄 문자열로 반환.
+    실패하면 "" 반환.
+    """
+    if image is None:
+        return ""
+
+    if not AZURE_VISION_ENDPOINT or not AZURE_VISION_KEY:
+        # Vision 리소스 설정 안 돼 있으면 OCR 패스
+        return ""
+
+    buf = io.BytesIO()
+    image.save(buf, format="JPEG")
+    img_bytes = buf.getvalue()
+
+    url = (
+        AZURE_VISION_ENDPOINT.rstrip("/")
+        + "/computervision/imageanalysis:analyze"
+        + "?api-version=2023-10-01&features=read"
+    )
+
+    headers = {
+        "Content-Type": "application/octet-stream",
+        "Ocp-Apim-Subscription-Key": AZURE_VISION_KEY,
+    }
+
+    try:
+        resp = requests.post(url, headers=headers, data=img_bytes, timeout=15)
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as e:
+        print("OCR 호출 에러:", e)
+        return ""
+
+    texts = []
+    try:
+        read_result = data.get("readResult") or {}
+        blocks = read_result.get("blocks") or []
+        for b in blocks:
+            for line in b.get("lines", []):
+                txt = line.get("text", "").strip()
+                if txt:
+                    texts.append(txt)
+    except Exception as e:
+        print("OCR 파싱 에러:", e)
+        return ""
+
+    joined = " ".join(texts)
+    return joined[:120]  # 너무 길면 잘라줌
+def pick_best_with_gpt(preds, ocr_text: str) -> str:
+    if not preds or not ocr_text:
+        return preds[0]["tagName"]
+
+    candidates_txt = "\n".join(
+        f"- {p['tagName']} (확률: {p['probability']*100:.1f}%)"
+        for p in preds
+    )
+
+    system_msg = (
+        "당신은 약품 라벨을 매칭해 주는 도우미입니다. "
+        "OCR로 읽은 영문 글자와 Custom Vision이 예측한 후보 약 이름(대부분 한글)을 보고, "
+        "가장 가능성이 높은 한글 약 이름 하나만 골라 주세요. "
+        "반드시 후보 목록에 있는 이름만 그대로 출력하세요."
+    )
+
+    user_msg = (
+        f"OCR 텍스트: {ocr_text}\n\n"
+        f"후보 리스트:\n{candidates_txt}\n\n"
+        "가장 가능성 높은 약 이름 하나만 출력하세요."
+    )
+
+    resp = client.chat.completions.create(
+        model=DEPLOYMENT_NAME,
+        messages=[
+            {"role": "system", "content": system_msg},
+            {"role": "user", "content": user_msg},
+        ],
+        temperature=0.0,
+    )
+
+    chosen = resp.choices[0].message.content.strip()
+
+    tag_names = {p["tagName"] for p in preds}
+    if chosen not in tag_names:
+        return preds[0]["tagName"]
+
+    return chosen
+# Custom Vision + OCR 같이 써서 최종 약 이름 선택
 
 def classify_pill(image):
+    """
+    1) Custom Vision 전체 predictions 가져옴
+    2) OCR로 알약 표면 글자 읽기
+    3) OCR 성공 시: 알파벳 유사도가 가장 큰 tagName 선택
+       - 유사도 너무 낮으면 그냥 원래 top1(tagName) 사용
+    4) OCR 실패 시: 원래 top1만 사용
+    """
     if image is None:
-        return "이미지 없음", 0.0
+        return "이미지 없음", 0.0, ""
 
+    # Custom Vision 호출
     buf = io.BytesIO()
     image.save(buf, format="JPEG")
     img_bytes = buf.getvalue()
@@ -42,29 +161,69 @@ def classify_pill(image):
 
     preds = data.get("predictions", [])
     if not preds:
-        return "분류 실패", 0.0
+        return "분류 실패", 0.0, ""
 
-    best = max(preds, key=lambda x: x["probability"])
-    tag_name = best["tagName"]
-    prob = best["probability"] * 100
-    return tag_name, prob
+    # 확률 기준 기본 1등 (fallback용)
+    base = max(preds, key=lambda x: x["probability"])
+    base_tag = base["tagName"]
+    base_prob = base["probability"] * 100
+
+    # OCR 
+    ocr_text = ocr_pill_text(image)  # 이미 만들어둔 OCR 함수
+    if not ocr_text:
+        # OCR 실패 → Custom Vision 결과 그대로 사용
+        return base_tag, base_prob, ""
+
+    ocr_norm = _normalize(ocr_text)  # 알파벳/숫자만 남기고 대문자로
+
+    # 알파벳 유사도 먼저 보는 로직 
+    best_tag = base_tag
+    best_prob = base_prob
+    best_sim = -1.0
+
+    for p in preds:
+        tag = p["tagName"]
+        prob = p["probability"] * 100
+        tag_norm = _normalize(tag)
+
+        sim = _similarity(ocr_norm, tag_norm)  # 0~1
+
+        if sim > best_sim or (sim == best_sim and prob > best_prob):
+            best_sim = sim
+            best_tag = tag
+            best_prob = prob
+
+    SIM_THRESHOLD = 0.25  # 필요하면 조절
+    if best_sim < SIM_THRESHOLD:
+        return base_tag, base_prob, ocr_text
+
+    return best_tag, best_prob, ocr_text
+
 
 # Azure OpenAI로 약 설명 생성
 
-def explain_pill_with_gpt(pill_name: str) -> str:
+def explain_pill_with_gpt(pill_name: str, ocr_text: str = "", prob: float = 0.0) -> str:
     if pill_name in ["이미지 없음", "분류 실패"]:
         return "이미지 인식이 제대로 되지 않아 약 정보를 생성할 수 없습니다. 다시 촬영해 주세요."
 
     system_msg = (
         "당신은 복약 안내를 도와주는 친절한 약사입니다. "
-        "사용자가 복용하려는 약의 이름을 알려주면, "
+        "모델이 예측한 약 이름과 알약 표면의 글자(알파벳/숫자)를 참고해서 "
+        "해당 약에 대한 정보를 한국어로 설명해 주세요. "
         "1) 어떤 약인지, 2) 일반적인 효능, 3) 기본 복용 방법, "
-        "4) 대표적인 주의사항/부작용을 쉽고 짧게 bullet 형식으로 설명해 주세요. "
-        "의사가 아닌 AI 데모 서비스이므로, 마지막에 반드시 "
-        "'정확한 복약 안내는 약사·의사와 상의해 주세요.'라는 문장을 포함해 주세요."
+        "4) 대표적인 주의사항/부작용을 bullet 형식으로 정리해 주세요. "
+        "AI 데모 서비스이므로 실제 제품명이나 성분이 100% 정확하지 않을 수 있습니다. "
+        "답변 마지막에는 반드시 '정확한 복약 안내는 약사·의사와 상의해 주세요.' 문장을 포함하세요."
     )
 
-    user_msg = f"약 이름: {pill_name}\n이 약에 대해 위 기준에 맞게 한국어로 설명해 주세요."
+    user_msg = (
+        f"모델이 예측한 약 이름: {pill_name}\n"
+        f"모델 신뢰도: {prob:.1f}%\n"
+        f"OCR로 읽힌 알약 표면 글자: '{ocr_text}'\n\n"
+        "위 정보를 바탕으로, 가장 가능성이 높은 약품을 기준으로 설명해 주세요. "
+        "약 이름이 애매하거나 여러 후보가 있을 수 있으면, "
+        "첫 번째 bullet에서 포장지/설명서를 반드시 확인하라고 언급해 주세요."
+    )
 
     response = client.chat.completions.create(
         model=DEPLOYMENT_NAME,
@@ -74,23 +233,27 @@ def explain_pill_with_gpt(pill_name: str) -> str:
         ],
         temperature=0.4,
     )
-
     return response.choices[0].message.content.strip()
 
 
-# Gradio에서 쓸 분석 함수
+# Gradio에서 호출할 최종 함수
 
 def analyze_pill(image):
     if image is None:
         return "이미지가 업로드되지 않았습니다.", ""
 
-    pill_name, prob = classify_pill(image)
-    detail = explain_pill_with_gpt(pill_name)
+    pill_name, prob, ocr_text = classify_pill(image)
+    detail = explain_pill_with_gpt(pill_name, ocr_text, prob)
 
-    header_text = f"예측된 약 이름: {pill_name} (신뢰도: {prob:.1f}%)"
+    if ocr_text:
+        header_text = (
+            f"예측된 약 이름: {pill_name} (신뢰도: {prob:.1f}%) | "
+            f"알약 표면 글자: {ocr_text}"
+        )
+    else:
+        header_text = f"예측된 약 이름: {pill_name} (신뢰도: {prob:.1f}%)"
+
     return header_text, detail
-
-
 
 # Gradio UI CSS 
 
