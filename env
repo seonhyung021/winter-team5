@@ -1,7 +1,7 @@
 # 로컬 실행 시 .env 붙여서 실행
 
-PREDICTION_URL=https://customvisionpredictionstudent07-prediction.cognitiveservices.azure.com/customvision/v3.0/Prediction/c60aaa22-46b0-40ff-9078-79f00e82e4d0/classify/iterations/Iteration1/image
-PREDICTION_KEY=3ZazAn012xcZ0Wz7oP5TvoqhvKnyscOxDaPAsdBybER6iW6uovJeJQQJ99BLACLArgHXJ3w3AAAIACOGa5Yl
+PREDICTION_URL=https://pillclassfication-prediction.cognitiveservices.azure.com/customvision/v3.0/Prediction/aafa7eeb-a9f7-43ef-8d15-c6af7792f641/detect/iterations/Iteration3/image
+PREDICTION_KEY=DqxBxChOwYy0zlye2PVJroXvj9ZtM40TCya1LgN1ZOigbVsXTiKhJQQJ99BLACL93NaXJ3w3AAAIACOG5H9l
 
 AZURE_OPENAI_ENDPOINT=https://team5-openai.openai.azure.com/
 AZURE_OPENAI_API_KEY=3eu1gnnzE0D5CLzz2AwO7VGZKWv32cPU7CTy9jwdTPdqdFWW8297JQQJ99BLACNns7RXJ3w3AAABACOGKUsp
