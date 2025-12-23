@@ -452,7 +452,7 @@ with gr.Blocks(css=custom_css, title="AI 복약 가이드") as demo:
         # 랜딩 화면
         with gr.Column(visible=True) as landing_group:
             gr.Markdown("""
-<div class="pill-landing-title">AI 복약 가이드</div>
+<div class="pill-landing-title">무엇이든 물어보세요 약사님</div>
 <div class="pill-landing-sub">
 사진 한 장으로 <span class="pill-landing-highlight">어떤 약인지, 어떻게 먹어야 하는지</span><br>
 빠르게 확인할 수 있는 Azure 기반 데모 서비스입니다.
