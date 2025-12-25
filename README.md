@@ -16,10 +16,15 @@
 
  주요 화면
 랜딩화면
+<br>
+<img width="600" src="/files/landing.png"> 
 
 약 인식
 <img width="600" src="/files/test1.jpg"> 
+<bt>
 <img width="600" src="/files/test2.jpg"> 
+<br>
+
  프로젝트 목표
 	•	 약 사진을 업로드하면
 	•	 Custom Vision이 약 종류를 분류
