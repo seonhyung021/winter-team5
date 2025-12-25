@@ -1,6 +1,7 @@
 # winter-team5
 💊 무물약 (무엇이든 물어보세요 약사님) — Azure 기반 약품 식별 & 복약 안내 서비스
-<img width="800" src="(여기에 전체 UI 스크린샷 넣기)">  
+<img width="800" src="![Uploading 스크린샷 2025-12-25 오후 4.38.16.png…]()
+">  
  사진 한 장으로 약품을 인식하고, Azure OpenAI를 통해 복약 안내를 제공하는 AI 서비스
  Microsoft Azure Custom Vision + Azure OpenAI + OCR 기반 프로젝트
  숙명여자대학교 Azure Winter School Team 5 프로젝트
