@@ -127,11 +127,11 @@ python newmain.py
 <br><br>
 ⸻
 <br>
- 한계
-	•	교육용 수준 정확도
-	•	학습 데이터 범위 밖 약품 인식 불가
-	•	의료 자문 대체 불가
-
- Acknowledgements
-	•	Microsoft Azure
-	•	숙명여자대학교 Azure Winter School Program
+ 한계<br>
+	•	교육용 수준 정확도<br>
+	•	학습 데이터 범위 밖 약품 인식 불가<br>
+	•	의료 자문 대체 불가<br>
+<br><br>
+ Acknowledgements<br>
+	•	Microsoft Azure<br>
+	•	숙명여자대학교 Azure Winter School Program<br>
