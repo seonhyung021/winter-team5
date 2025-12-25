@@ -93,7 +93,7 @@ Frontend - Gradio UI Custom CSS<br>
 Backend - Python<br>
 AI Vision - Azure Custom Vision<br>
 NLP - Azure OpenAI GPT<br>
-OCR (확장 가능) - Azure AI Vision<br>
+OCR - Azure AI Vision<br>
 Infra - Microsoft Azure<br>
 협업 - GitHub<br>
 <br>
