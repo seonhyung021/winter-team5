@@ -14,7 +14,8 @@
 
 ⸻
 
- 주요 화면
+ 주요 화면<br>
+
 랜딩화면
 <br>
 <img width="600" src="/files/landing.png"> 
