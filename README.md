@@ -76,19 +76,19 @@
 ※ 본 프로젝트는 교육용 데모 서비스입니다.
 
  시스템 구조
-[사용자]
-   ↓ 이미지 업로드
-[Gradio UI]
-   ↓
-[Azure Custom Vision, Azure AI Service]
-   → 약 분류 / 확률 계산
-   ↓
-[Azure OpenAI]
-   → 약 설명 + 복약 가이드 생성
-   ↓
-[사용자에게 결과 제공]
-
- 사용 기술
+[사용자] <br>
+   ↓ 이미지 업로드<br>
+[Gradio UI]<br>
+   ↓<br>
+[Azure Custom Vision, Azure AI Service]<br>
+   → 약 분류 / 확률 계산<br>
+   ↓<br>
+[Azure OpenAI]<br>
+   → 약 설명 + 복약 가이드 생성<br>
+   ↓<br>
+[사용자에게 결과 제공]<br>
+<br>
+ 사용 기술<br>
 Frontend - Gradio UI Custom CSS
 Backend - Python
 AI Vision - Azure Custom Vision
