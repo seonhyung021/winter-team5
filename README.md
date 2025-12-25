@@ -48,6 +48,8 @@
 ⸻
 
 2️⃣ GPT 기반 약 설명 생성 (Azure OpenAI)
+<img width="600" src="/files/test2.png"> 
+
 	•	예측된 약 이름 기반
 	•	다음 정보 제공:
 	•	약 설명
@@ -55,7 +57,8 @@
 	•	기본 복용 방법
 	•	주의사항 / 부작용
 	•	한국어 자연어 서술
-
+<img width="600" src="/files/question.png"> 
+	•	추가 질문 
 ⸻
 
 3️⃣ 사용자 친화적 UI (Gradio)
