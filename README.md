@@ -9,7 +9,7 @@
 
  데모 영상
 
- 영상 추가 예정
+<video src="videos/demo.mp4" controls width="800"></video>
 
 
 ⸻
