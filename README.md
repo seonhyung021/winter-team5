@@ -9,7 +9,7 @@
 
  데모 영상
 
-<video src="/files/demo.mp4" controls width="800"></video>
+<video src="/files/demo1.mp4" controls width="800"></video>
 
 
 ⸻
@@ -18,7 +18,8 @@
 랜딩화면
 
 약 인식
-
+<img width="600" src="/files/test1.jpg"> 
+<img width="600" src="/files/test2.jpg"> 
  프로젝트 목표
 	•	 약 사진을 업로드하면
 	•	 Custom Vision이 약 종류를 분류
@@ -31,6 +32,9 @@
  주요 기능
 
 1️⃣ 약 이미지 분류 (Azure Custom Vision)
+
+<img width="600" src="/files/learning.PNG"> 
+
 	•	OCR (Azure Ai Service)로 이중 분류해 정확도 높임
 	•	학습된 이미지 기반 Tag 분류
 	•	신뢰도(%) 제공
