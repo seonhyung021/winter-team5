@@ -20,10 +20,11 @@
 <img width="600" src="/files/landing.png"> 
 
 약 인식
-<img width="600" src="/files/test1.jpg"> 
-<bt>
-<img width="600" src="/files/test2.jpg"> 
+
+
+<img width="600" src="/files/teest1.jpg"> 
 <br>
+<img width="600" src="/files/test1.jpg"> 
 
  프로젝트 목표
 	•	 약 사진을 업로드하면
