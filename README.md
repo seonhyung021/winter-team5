@@ -89,44 +89,44 @@
 [사용자에게 결과 제공]<br>
 <br>
  사용 기술<br>
-Frontend - Gradio UI Custom CSS
-Backend - Python
-AI Vision - Azure Custom Vision
-NLP - Azure OpenAI GPT
-OCR (확장 가능) - Azure AI Vision
-Infra - Microsoft Azure
-협업 - GitHub
-
+Frontend - Gradio UI Custom CSS<br>
+Backend - Python<br>
+AI Vision - Azure Custom Vision<br>
+NLP - Azure OpenAI GPT<br>
+OCR (확장 가능) - Azure AI Vision<br>
+Infra - Microsoft Azure<br>
+협업 - GitHub<br>
+<br>
  실행 방법
-
-1️⃣ 필수 라이브러리
-pip install gradio
-pip install requests
-pip install python-dotenv
-pip install openai
-
+<br>
+1️⃣ 필수 라이브러리<br>
+pip install gradio<br>
+pip install requests<br>
+pip install python-dotenv<br>
+pip install openai<br>
+<br>
 2️⃣ .env 파일 생성
-PREDICTION_URL=
-PREDICTION_KEY=
-
-AZURE_OPENAI_ENDPOINT=
-AZURE_OPENAI_KEY=
-DEPLOYMENT_NAME=
-
-AZURE_VISION_ENDPOINT=
-AZURE_VISION_KEY=
-
-3️⃣ 실행
+PREDICTION_URL=<br>
+PREDICTION_KEY=<br>
+<br><br>
+AZURE_OPENAI_ENDPOINT=<br>
+AZURE_OPENAI_KEY=<br>
+DEPLOYMENT_NAME=<br>
+<br><br>
+AZURE_VISION_ENDPOINT=<br>
+AZURE_VISION_KEY=<br>
+<br><br>
+3️⃣ 실행<br>
 python newmain.py
-
+<br><br>
  확장 가능성
 	•	OCR 기반 알약 표면 문자 인식 정확도 향상
 	•	실제 약 데이터베이스 연동 (식약처 API 등)
 	•	약물 병용 위험 분석 추가
 	•	모바일 앱으로 확장 가능
-
+<br><br>
 ⸻
-
+<br>
  한계
 	•	교육용 수준 정확도
 	•	학습 데이터 범위 밖 약품 인식 불가
