@@ -105,7 +105,7 @@ pip install requests<br>
 pip install python-dotenv<br>
 pip install openai<br>
 <br>
-2️⃣ .env 파일 생성
+2️⃣ .env 파일 생성<br>
 PREDICTION_URL=<br>
 PREDICTION_KEY=<br>
 <br><br>
